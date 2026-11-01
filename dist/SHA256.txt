@@ -1,0 +1,1 @@
+SHA256 (FreeTune-0.3.0.apk) = 15d53ed9ca0b75a4cca9407ae1c3d1c0e5d1bdcf8dba87203a43fb4664d9f1cb
