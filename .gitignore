@@ -17,3 +17,6 @@ build-release.log
 
 # Release binaries live on the Releases page, not in git
 dist/*.apk
+
+# Generated Cloudflare Pages output (built from site/src + dist)
+site/public/

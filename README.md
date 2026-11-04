@@ -13,8 +13,9 @@ A free, ad-free, fully local YouTube music player for Android.
 
 ## Install
 
-1. Open [Releases](https://github.com/ThatAerospaceandTechGuy/FreeTune-Android/releases/latest)
-   and download `FreeTune-0.8.4.apk`, or pick any older version from its own release.
+1. Open [freetune-android.pages.dev](https://freetune-android.pages.dev) for every
+   version with checksums, or use [Releases](https://github.com/ThatAerospaceandTechGuy/FreeTune-Android/releases/latest)
+   and download `FreeTune-0.8.4.apk` directly.
 2. Optionally check the APK against the SHA-256 listed in the release notes:
    `sha256sum FreeTune-0.8.4.apk`.
 3. Transfer it to an Android phone (Android 8.0+).
@@ -48,6 +49,18 @@ Release build (uses `keystore.properties` + `freetune-release.jks` if present):
 ```powershell
 .\gradlew.bat :app:assembleRelease
 ```
+
+## Website
+
+The download page at <https://freetune-android.pages.dev> is generated from
+`dist/` and deployed to Cloudflare Pages:
+
+```sh
+node site/build.mjs
+npx wrangler pages deploy site/public --project-name freetune-android --branch main
+```
+
+See `site/README.md` for details.
 
 ## Features in this version
 
