@@ -23,7 +23,7 @@ const distDir = join(rootDir, "dist");
 const srcDir = join(siteDir, "src");
 const outDir = join(siteDir, "public");
 
-const siteUrl = (process.env.SITE_URL || "https://freetune-android.pages.dev").replace(/\/$/, "");
+const siteUrl = (process.env.SITE_URL || "https://freetunes.pages.dev").replace(/\/$/, "");
 const github = "https://github.com/ThatAerospaceandTechGuy/FreeTune-Android";
 
 const NOTES = {

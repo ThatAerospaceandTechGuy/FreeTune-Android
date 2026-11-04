@@ -1,7 +1,7 @@
 # FreeTune website
 
 Static marketing and download site, deployed to Cloudflare Pages at
-<https://freetune-android.pages.dev>.
+<https://freetunes.pages.dev>.
 
 ## Build
 
@@ -14,7 +14,7 @@ The build reads the real APKs and checksums from `../dist`, writes the page into
 to change the canonical URL:
 
 ```sh
-SITE_URL=https://freetune-android.pages.dev node site/build.mjs
+SITE_URL=https://freetunes.pages.dev node site/build.mjs
 ```
 
 `site/public` is generated and ignored by git; `site/src` is the source of truth.
@@ -32,7 +32,7 @@ npx serve site/public
 The connected Cloudflare account is used through `CLOUDFLARE_API_TOKEN`:
 
 ```sh
-npx wrangler pages deploy site/public --project-name freetune-android --branch main
+npx wrangler pages deploy site/public --project-name freetunes --branch main
 ```
 
 Wrangler uploads the directory directly; there is no Git integration or build
