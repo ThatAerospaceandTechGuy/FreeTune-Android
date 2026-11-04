@@ -20,3 +20,6 @@ dist/*.apk
 
 # Generated Cloudflare Pages output (built from site/src + dist)
 site/public/
+
+# Wrangler local state
+.wrangler/
