@@ -130,6 +130,9 @@ fun SearchScreen(vm: MainViewModel) {
                         liked = likedIds.contains(track.id),
                         downloaded = downloaded,
                         onPlay = { vm.play(track, state.results) },
+                        onStartRadio = { vm.startRadio(track) },
+                        onPlayNext = { vm.playNext(track) },
+                        onAddToQueue = { vm.addToQueue(track) },
                         onToggleLike = { vm.toggleLike(track) },
                         onDownload = {
                             downloadOrToast(context, downloaded) { vm.download(track) }

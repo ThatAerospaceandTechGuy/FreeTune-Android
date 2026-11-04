@@ -12,8 +12,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -63,6 +68,18 @@ fun FreeTuneRoot() {
     val factory = remember(app.container) { MainViewModelFactory(app.container) }
     val vm: MainViewModel = viewModel(factory = factory)
     val navController = rememberNavController()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(vm) {
+        vm.skipUndo.collect {
+            val result = snackbarHostState.showSnackbar(
+                message = "Skipped",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.undoSkip()
+        }
+    }
 
     val playerState by vm.playerState.collectAsStateWithLifecycle()
     val pickerTrack by vm.playlistPicker.collectAsStateWithLifecycle()
@@ -84,6 +101,7 @@ fun FreeTuneRoot() {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (showChrome) {
                 Column {

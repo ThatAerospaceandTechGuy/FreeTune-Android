@@ -1,5 +1,7 @@
 package com.freetune.app.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,10 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Favorite
@@ -21,6 +25,9 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,9 +53,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.freetune.app.playback.RepeatMode
 import com.freetune.app.ui.MainViewModel
 import com.freetune.app.ui.components.AsyncArtwork
 import com.freetune.app.ui.components.EmptyHint
+import com.freetune.app.ui.components.LyricsView
+import com.freetune.app.ui.components.QueueDialog
+import com.freetune.app.ui.components.SleepTimerDialog
 import com.freetune.app.ui.components.formatDuration
 
 @Composable
@@ -56,7 +68,13 @@ fun PlayerScreen(vm: MainViewModel, onBack: () -> Unit) {
     val likedIds by vm.likedIds.collectAsStateWithLifecycle()
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
     val autoplay by vm.autoplay.collectAsStateWithLifecycle()
+    val lyricsState by vm.lyrics.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showQueue by remember { mutableStateOf(false) }
+    var showSleep by remember { mutableStateOf(false) }
+    val lyricsPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) vm.attachLyrics(uri) }
 
     Column(
         modifier = Modifier
@@ -238,6 +256,124 @@ fun PlayerScreen(vm: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = vm::cycleRepeatMode) {
+                    Icon(
+                        imageVector = if (state.repeatMode == RepeatMode.ONE) {
+                            Icons.Rounded.RepeatOne
+                        } else {
+                            Icons.Rounded.Repeat
+                        },
+                        contentDescription = "Repeat",
+                        tint = if (state.repeatMode == RepeatMode.OFF) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = when (state.repeatMode) {
+                            RepeatMode.OFF -> "Repeat off"
+                            RepeatMode.ALL -> "Repeat all"
+                            RepeatMode.ONE -> "Repeat one"
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(onClick = { showSleep = true }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Bedtime,
+                        contentDescription = "Sleep timer",
+                        tint = if (state.sleepRemainingMs > 0L || state.sleepAtEnd) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = when {
+                            state.sleepAtEnd -> "After song"
+                            state.sleepRemainingMs > 0L ->
+                                formatDuration(state.sleepRemainingMs)
+                            else -> "Sleep"
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(onClick = { showQueue = true }) {
+                    Icon(
+                        imageVector = Icons.Rounded.QueueMusic,
+                        contentDescription = "Queue",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Queue", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Lyrics", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.weight(1f))
+                if (lyricsState.manual) {
+                    TextButton(onClick = vm::removeLyrics) { Text("Remove") }
+                }
+                TextButton(onClick = { lyricsPicker.launch(arrayOf("*/*")) }) {
+                    Text(if (lyricsState.lyrics == null) "Add .lrc" else "Change")
+                }
+            }
+            val currentLyrics = lyricsState.lyrics
+            when {
+                lyricsState.loading -> Text(
+                    text = "Looking for lyrics…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                currentLyrics != null -> Column {
+                    if (currentLyrics.instrumental) {
+                        Text(
+                            text = "Instrumental track — no lyrics.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        LyricsView(
+                            lyrics = currentLyrics,
+                            positionMs = state.positionMs
+                        )
+                    }
+                    if (currentLyrics.source != null) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Lyrics · ${currentLyrics.source}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                else -> Text(
+                    text = "No lyrics found for this song. Add a .lrc file to use your " +
+                        "own instead of the online lookup.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Spacer(Modifier.height(16.dp))
 
             Row(
@@ -273,5 +409,32 @@ fun PlayerScreen(vm: MainViewModel, onBack: () -> Unit) {
 
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showQueue) {
+        QueueDialog(
+            state = state,
+            onDismiss = { showQueue = false },
+            onJump = vm::jumpToQueue
+        )
+    }
+    if (showSleep) {
+        SleepTimerDialog(
+            active = state.sleepRemainingMs > 0L || state.sleepAtEnd,
+            atEnd = state.sleepAtEnd,
+            onDismiss = { showSleep = false },
+            onPick = { minutes ->
+                vm.setSleepTimer(minutes)
+                showSleep = false
+            },
+            onEndOfTrack = {
+                vm.setSleepAtEndOfTrack()
+                showSleep = false
+            },
+            onCancel = {
+                vm.cancelSleepTimer()
+                showSleep = false
+            }
+        )
     }
 }

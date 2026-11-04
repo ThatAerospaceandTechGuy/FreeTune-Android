@@ -87,9 +87,13 @@ fun TrackRow(
     onToggleLike: () -> Unit,
     onDownload: () -> Unit,
     onRemoveDownload: (() -> Unit)? = null,
+    onStartRadio: (() -> Unit)? = null,
+    onPlayNext: (() -> Unit)? = null,
+    onAddToQueue: (() -> Unit)? = null,
     onAddToPlaylist: (() -> Unit)? = null,
     onRemoveFromPlaylist: (() -> Unit)? = null,
-    showDownload: Boolean = true
+    showDownload: Boolean = true,
+    leading: (@Composable () -> Unit)? = null
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     Row(
@@ -99,6 +103,10 @@ fun TrackRow(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(4.dp))
+        }
         AsyncArtwork(
             url = track.thumbnailUrl,
             modifier = Modifier.size(56.dp)
@@ -144,7 +152,9 @@ fun TrackRow(
                 )
             }
         }
-        if (onAddToPlaylist != null || onRemoveFromPlaylist != null) {
+        if (onStartRadio != null || onPlayNext != null || onAddToQueue != null ||
+            onAddToPlaylist != null || onRemoveFromPlaylist != null
+        ) {
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(
@@ -154,6 +164,33 @@ fun TrackRow(
                     )
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (onStartRadio != null) {
+                        DropdownMenuItem(
+                            text = { Text("Start radio") },
+                            onClick = {
+                                menuOpen = false
+                                onStartRadio()
+                            }
+                        )
+                    }
+                    if (onPlayNext != null) {
+                        DropdownMenuItem(
+                            text = { Text("Play next") },
+                            onClick = {
+                                menuOpen = false
+                                onPlayNext()
+                            }
+                        )
+                    }
+                    if (onAddToQueue != null) {
+                        DropdownMenuItem(
+                            text = { Text("Add to queue") },
+                            onClick = {
+                                menuOpen = false
+                                onAddToQueue()
+                            }
+                        )
+                    }
                     if (onAddToPlaylist != null) {
                         DropdownMenuItem(
                             text = { Text("Add to playlist") },

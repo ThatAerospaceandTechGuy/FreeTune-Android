@@ -87,6 +87,7 @@ object Downloads {
     private const val KEY_THUMBNAIL = "thumbnail"
     private const val KEY_QUALITY = "quality"
     private const val KEY_FOLDER = "folder"
+    private const val KEY_REPLACE = "replace"
 
     fun enqueue(
         context: android.content.Context,
@@ -112,7 +113,8 @@ object Downloads {
                     KEY_DURATION to track.durationMs,
                     KEY_THUMBNAIL to track.thumbnailUrl,
                     KEY_QUALITY to quality.name,
-                    KEY_FOLDER to folder
+                    KEY_FOLDER to folder,
+                    KEY_REPLACE to replace
                 )
             )
             .setConstraints(constraints)

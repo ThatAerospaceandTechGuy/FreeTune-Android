@@ -22,6 +22,9 @@ class SettingsStore(context: Context) {
     private val _autoplay = MutableStateFlow(prefs.getBoolean(KEY_AUTOPLAY, true))
     val autoplay: StateFlow<Boolean> = _autoplay.asStateFlow()
 
+    private val _incognito = MutableStateFlow(prefs.getBoolean(KEY_INCOGNITO, false))
+    val incognito: StateFlow<Boolean> = _incognito.asStateFlow()
+
     fun setQuality(value: AudioQuality) {
         prefs.edit().putString(KEY_QUALITY, value.name).apply()
         _quality.value = value
@@ -42,12 +45,18 @@ class SettingsStore(context: Context) {
         _autoplay.value = value
     }
 
+    fun setIncognito(value: Boolean) {
+        prefs.edit().putBoolean(KEY_INCOGNITO, value).apply()
+        _incognito.value = value
+    }
+
     fun reset() {
         prefs.edit().clear().apply()
         _quality.value = AudioQuality.HIGH
         _wifiOnly.value = false
         _floatingControls.value = false
         _autoplay.value = true
+        _incognito.value = false
     }
 
     private fun loadQuality(): AudioQuality {
@@ -61,5 +70,6 @@ class SettingsStore(context: Context) {
         const val KEY_WIFI_ONLY = "wifi_only"
         const val KEY_FLOATING_CONTROLS = "floating_controls"
         const val KEY_AUTOPLAY = "autoplay"
+        const val KEY_INCOGNITO = "incognito"
     }
 }

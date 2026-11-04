@@ -11,3 +11,9 @@ captures/
 .cxx/
 build-debug.log
 build-release.log
+
+# Local JDK used for command-line builds
+.jdk/
+
+# Release binaries live on the Releases page, not in git
+dist/*.apk

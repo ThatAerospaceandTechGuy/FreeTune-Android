@@ -12,6 +12,7 @@ data class TrackEntity(
     val durationMs: Long,
     val thumbnailUrl: String?,
     val localPath: String?,
+    val contentUri: String?,
     val liked: Boolean,
     val lastPlayedAt: Long,
     val addedAt: Long
@@ -24,6 +25,7 @@ fun TrackEntity.toTrack(): Track = Track(
     durationMs = durationMs,
     thumbnailUrl = thumbnailUrl,
     localPath = localPath,
+    contentUri = contentUri,
     liked = liked,
     lastPlayedAt = lastPlayedAt
 )
@@ -35,6 +37,7 @@ fun Track.toEntity(addedAt: Long = System.currentTimeMillis()): TrackEntity = Tr
     durationMs = durationMs,
     thumbnailUrl = thumbnailUrl,
     localPath = localPath,
+    contentUri = contentUri,
     liked = liked,
     lastPlayedAt = lastPlayedAt,
     addedAt = addedAt

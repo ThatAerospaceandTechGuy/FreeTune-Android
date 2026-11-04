@@ -2,6 +2,8 @@ package com.freetune.app.data.repo
 
 import android.content.Context
 import android.os.Environment
+import androidx.room.withTransaction
+import com.freetune.app.data.db.AppDatabase
 import com.freetune.app.data.db.PlaylistDao
 import com.freetune.app.data.db.PlaylistEntity
 import com.freetune.app.data.db.PlaylistTrackEntity
@@ -16,6 +18,7 @@ import java.io.File
 
 class MusicRepository(
     private val context: Context,
+    private val database: AppDatabase,
     private val dao: TrackDao,
     private val playlistDao: PlaylistDao
 ) {
@@ -58,6 +61,7 @@ class MusicRepository(
                     artist = track.artist,
                     durationMs = track.durationMs,
                     thumbnailUrl = track.thumbnailUrl,
+                    contentUri = track.contentUri ?: existing.contentUri,
                     lastPlayedAt = now
                 )
             )
@@ -68,7 +72,7 @@ class MusicRepository(
         val existing = dao.find(track.id)
         val base = existing ?: track.toEntity()
         val oldPath = existing?.localPath
-        if (!oldPath.isNullOrBlank() && oldPath != path) {
+        if (!oldPath.isNullOrBlank() && oldPath != path && isInsideDownloadDir(oldPath)) {
             runCatching { File(oldPath).delete() }
         }
         dao.upsert(
@@ -83,7 +87,11 @@ class MusicRepository(
     }
 
     suspend fun removeDownload(track: Track) {
-        track.localPath?.let { path -> runCatching { File(path).delete() } }
+        // Never delete a file the app did not create (e.g. an imported song from
+        // the user's Music folder), only files inside Music/FreeTune.
+        track.localPath
+            ?.takeIf { isInsideDownloadDir(it) }
+            ?.let { path -> runCatching { File(path).delete() } }
         dao.clearLocalPath(track.id)
     }
 
@@ -113,8 +121,54 @@ class MusicRepository(
         return inserted != -1L
     }
 
+    /**
+     * Imports songs that already exist on the device (MediaStore entries) into a
+     * playlist. Returns how many songs were newly added.
+     */
+    suspend fun importTracks(playlistId: Long, tracks: List<Track>): Int =
+        database.withTransaction {
+            val playlist = playlistDao.find(playlistId) ?: return@withTransaction 0
+            var position = playlistDao.nextPosition(playlist.id)
+            var added = 0
+            tracks.forEach { track ->
+                val existing = dao.find(track.id)
+                dao.upsert(
+                    existing?.copy(
+                        title = track.title,
+                        artist = track.artist,
+                        durationMs = track.durationMs,
+                        thumbnailUrl = track.thumbnailUrl,
+                        contentUri = track.contentUri ?: existing.contentUri
+                    ) ?: track.toEntity()
+                )
+                val inserted = playlistDao.addTrack(
+                    PlaylistTrackEntity(
+                        playlistId = playlistId,
+                        trackId = track.id,
+                        position = position,
+                        addedAt = System.currentTimeMillis()
+                    )
+                )
+                if (inserted != -1L) {
+                    position++
+                    added++
+                }
+            }
+            added
+        }
+
     suspend fun removeFromPlaylist(playlistId: Long, trackId: String) {
         playlistDao.removeTrack(playlistId, trackId)
+    }
+
+    /** Persists a new song order after a drag-and-drop reorder. */
+    suspend fun reorderPlaylist(playlistId: Long, orderedTrackIds: List<String>) {
+        if (orderedTrackIds.isEmpty()) return
+        database.withTransaction {
+            orderedTrackIds.forEachIndexed { position, trackId ->
+                playlistDao.setPosition(playlistId, trackId, position)
+            }
+        }
     }
 
     suspend fun clearRecent() = dao.clearRecent()
@@ -124,6 +178,11 @@ class MusicRepository(
         dao.clearAll()
         downloadDir(context).deleteRecursively()
     }
+
+    private fun isInsideDownloadDir(path: String): Boolean = runCatching {
+        val root = downloadDir(context).canonicalPath + File.separator
+        File(path).canonicalPath.startsWith(root)
+    }.getOrDefault(false)
 
     companion object {
         fun downloadDir(context: Context): File {

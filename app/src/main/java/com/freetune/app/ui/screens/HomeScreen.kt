@@ -272,6 +272,9 @@ fun HomeScreen(
                         liked = likedIds.contains(track.id),
                         downloaded = downloaded,
                         onPlay = { vm.play(track, discover.results) },
+                        onStartRadio = { vm.startRadio(track) },
+                        onPlayNext = { vm.playNext(track) },
+                        onAddToQueue = { vm.addToQueue(track) },
                         onToggleLike = { vm.toggleLike(track) },
                         onDownload = {
                             downloadOrToast(context, downloaded) { vm.download(track) }

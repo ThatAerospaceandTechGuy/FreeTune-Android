@@ -49,6 +49,7 @@ fun SettingsScreen(vm: MainViewModel) {
     val wifiOnly by vm.wifiOnly.collectAsStateWithLifecycle()
     val floatingControls by vm.floatingControls.collectAsStateWithLifecycle()
     val autoplay by vm.autoplay.collectAsStateWithLifecycle()
+    val incognito by vm.incognito.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showEraseDialog by rememberSaveable { mutableStateOf(false) }
     var pendingOverlay by rememberSaveable { mutableStateOf(false) }
@@ -186,6 +187,21 @@ fun SettingsScreen(vm: MainViewModel) {
         }
 
         SettingsCard(title = "Privacy") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Private listening", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Played songs are not added to Recent or used for the daily mix",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = incognito, onCheckedChange = vm::setIncognito)
+            }
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = "No accounts. No analytics. No ads. Your library, history and downloads stay on this device.",
                 style = MaterialTheme.typography.bodyMedium

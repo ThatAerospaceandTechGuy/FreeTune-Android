@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TrackEntity::class, PlaylistEntity::class, PlaylistTrackEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -45,6 +45,17 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_playlist_tracks_trackId` " +
                         "ON `playlist_tracks` (`trackId`)"
                 )
+            }
+        }
+
+        /**
+         * v3 adds `contentUri` so songs that already live on the device (Music folder,
+         * Downloads, other apps' folders) can be imported into playlists and played
+         * without touching the YouTube extractor.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tracks` ADD COLUMN `contentUri` TEXT")
             }
         }
     }

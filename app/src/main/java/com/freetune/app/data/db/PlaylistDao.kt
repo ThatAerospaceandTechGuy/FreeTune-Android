@@ -49,6 +49,12 @@ interface PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addTrack(ref: PlaylistTrackEntity): Long
 
+    @Query(
+        "UPDATE playlist_tracks SET position = :position " +
+            "WHERE playlistId = :playlistId AND trackId = :trackId"
+    )
+    suspend fun setPosition(playlistId: Long, trackId: String, position: Int)
+
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :id AND trackId = :trackId")
     suspend fun removeTrack(id: Long, trackId: String)
 

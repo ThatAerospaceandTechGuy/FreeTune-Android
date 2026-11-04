@@ -1,10 +1,14 @@
 package com.freetune.app.data.download
 
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -36,6 +40,7 @@ class DownloadWorker(
         val quality = runCatching {
             AudioQuality.valueOf(inputData.getString(KEY_QUALITY) ?: AudioQuality.HIGH.name)
         }.getOrDefault(AudioQuality.HIGH)
+        val replace = inputData.getBoolean(KEY_REPLACE, false)
 
         val track = Track(
             id = id,
@@ -72,8 +77,17 @@ class DownloadWorker(
             val target = File(dir, "$safeName [$id].$extension")
             val partial = File(dir, "$safeName [$id].part")
 
-            if (target.exists() && target.length() > 0L) {
+            if (replace) {
+                // "Download all" has to fetch a fresh copy instead of reusing the
+                // file that is already sitting on disk.
+                if (target.exists()) target.delete()
+                if (partial.exists()) partial.delete()
+            } else if (target.exists() && target.length() > 0L) {
                 container.repository.saveDownload(track, target.absolutePath)
+                // Older downloads may not have lyrics yet; fill them in now.
+                if (!container.lyrics.hasSidecar(target.absolutePath)) {
+                    runCatching { container.lyrics.saveSidecar(track, target.absolutePath) }
+                }
                 DownloadStatusStore.done(id)
                 return Result.success()
             }
@@ -92,6 +106,9 @@ class DownloadWorker(
             }
 
             container.repository.saveDownload(track, target.absolutePath)
+            // Store time-synced lyrics beside the audio so downloads carry their
+            // own lyrics and still show them with no connection.
+            runCatching { container.lyrics.saveSidecar(track, target.absolutePath) }
             DownloadStatusStore.done(id)
             notify(title, "Saved to your downloads")
             Result.success()
@@ -153,10 +170,25 @@ class DownloadWorker(
                     }
                 }
             }
+
+            // A connection that closes early must not be saved as a complete song.
+            if (total > 0L && written < total) {
+                throw IOException("Download stopped at $written of $total bytes")
+            }
         }
     }
 
     private fun notify(title: String, text: String) {
+        // Posting without POST_NOTIFICATIONS is a no-op on Android 13+; skip early so
+        // the work finishes cleanly instead of tripping over the missing permission.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                applicationContext,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         val intent = PendingIntent.getActivity(
             applicationContext,
             0,
@@ -197,6 +229,7 @@ class DownloadWorker(
         const val KEY_THUMBNAIL = "thumbnail"
         const val KEY_QUALITY = "quality"
         const val KEY_FOLDER = "folder"
+        const val KEY_REPLACE = "replace"
         const val KEY_PROGRESS = "progress"
     }
 }

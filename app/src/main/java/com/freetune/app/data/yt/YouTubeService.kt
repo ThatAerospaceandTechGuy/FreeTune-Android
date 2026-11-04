@@ -78,7 +78,8 @@ object YouTubeService {
 
     suspend fun getPlaybackSource(
         videoId: String,
-        quality: AudioQuality
+        quality: AudioQuality,
+        excludeBitrate: Int? = null
     ): PlaybackSource = withContext(Dispatchers.IO) {
         val info = StreamInfo.getInfo(
             service,
@@ -91,11 +92,18 @@ object YouTubeService {
         }
 
         val known = all.filter { it.averageBitrate > 0 }.ifEmpty { all }
+        // On a retry, prefer a different bitrate: it is a different stream, so a
+        // truncated one is not picked again just because it sorts first.
+        val eligible = if (excludeBitrate != null) {
+            known.filter { it.averageBitrate != excludeBitrate }.ifEmpty { known }
+        } else {
+            known
+        }
         val chosen = when (quality) {
-            AudioQuality.HIGH -> known.maxByOrNull { it.averageBitrate }
+            AudioQuality.HIGH -> eligible.maxByOrNull { it.averageBitrate }
             AudioQuality.BALANCED ->
-                known.minByOrNull { abs(it.averageBitrate - 128) }
-            AudioQuality.DATA_SAVER -> known.minByOrNull { it.averageBitrate }
+                eligible.minByOrNull { abs(it.averageBitrate - 128) }
+            AudioQuality.DATA_SAVER -> eligible.minByOrNull { it.averageBitrate }
         } ?: throw IOException("No playable audio stream found for this video.")
 
         PlaybackSource(

@@ -7,10 +7,22 @@ data class Track(
     val durationMs: Long,
     val thumbnailUrl: String? = null,
     val localPath: String? = null,
+    val contentUri: String? = null,
     val liked: Boolean = false,
     val lastPlayedAt: Long = 0L
 ) {
+    /** True when FreeTune downloaded this song into its own folder. */
     val isDownloaded: Boolean get() = !localPath.isNullOrBlank()
+
+    /** True when the song lives on the device (imported from a Music/Download folder). */
+    val isLocalFile: Boolean get() = !contentUri.isNullOrBlank() || id.startsWith(LOCAL_PREFIX)
+
+    /** Playable without reaching YouTube. */
+    val isAvailableOffline: Boolean get() = isDownloaded || !contentUri.isNullOrBlank()
+
+    companion object {
+        const val LOCAL_PREFIX = "local:"
+    }
 }
 
 enum class AudioQuality(val label: String, val description: String) {

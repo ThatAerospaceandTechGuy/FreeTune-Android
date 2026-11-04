@@ -54,6 +54,7 @@ import com.freetune.app.data.download.DownloadState
 import com.freetune.app.data.download.DownloadStatus
 import com.freetune.app.data.model.Playlist
 import com.freetune.app.data.model.Track
+import com.freetune.app.ui.LyricsBackfillState
 import com.freetune.app.ui.MainViewModel
 import com.freetune.app.ui.components.CreatePlaylistDialog
 import com.freetune.app.ui.components.EmptyHint
@@ -73,6 +74,7 @@ fun LibraryScreen(
     val likedIds by vm.likedIds.collectAsStateWithLifecycle()
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
     val statuses by vm.downloadStatuses.collectAsStateWithLifecycle()
+    val backfill by vm.lyricsBackfill.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var tab by rememberSaveable { mutableStateOf(0) }
@@ -140,6 +142,9 @@ fun LibraryScreen(
                                 liked = true,
                                 downloaded = downloaded,
                                 onPlay = { vm.play(track, liked) },
+                                onStartRadio = { vm.startRadio(track) },
+                                onPlayNext = { vm.playNext(track) },
+                                onAddToQueue = { vm.addToQueue(track) },
                                 onToggleLike = { vm.toggleLike(track) },
                                 onDownload = {
                                     downloadOrToast(context, downloaded) { vm.download(track) }
@@ -156,6 +161,8 @@ fun LibraryScreen(
                 downloads = downloads,
                 likedIds = likedIds,
                 downloadedIds = downloadedIds,
+                backfill = backfill,
+                onBackfill = vm::backfillLyrics,
                 vm = vm,
                 context = context
             )
@@ -190,6 +197,9 @@ fun LibraryScreen(
                                     liked = likedIds.contains(track.id),
                                     downloaded = downloaded,
                                     onPlay = { vm.play(track, recent) },
+                                    onStartRadio = { vm.startRadio(track) },
+                                    onPlayNext = { vm.playNext(track) },
+                                    onAddToQueue = { vm.addToQueue(track) },
                                     onToggleLike = { vm.toggleLike(track) },
                                     onDownload = {
                                         downloadOrToast(context, downloaded) { vm.download(track) }
@@ -421,6 +431,8 @@ private fun DownloadsTab(
     downloads: List<Track>,
     likedIds: Set<String>,
     downloadedIds: Set<String>,
+    backfill: LyricsBackfillState,
+    onBackfill: () -> Unit,
     vm: MainViewModel,
     context: android.content.Context
 ) {
@@ -460,6 +472,43 @@ private fun DownloadsTab(
         }
 
         if (downloads.isNotEmpty()) {
+            item {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Lyrics for downloads",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(
+                                text = when {
+                                    backfill.running ->
+                                        "Saving… ${backfill.done} of ${backfill.total}"
+                                    backfill.finished ->
+                                        "Saved ${backfill.saved}" + if (backfill.missing > 0) {
+                                            " · ${backfill.missing} not found"
+                                        } else {
+                                            ""
+                                        }
+                                    else -> "Store a .lrc beside each downloaded song"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(onClick = onBackfill, enabled = !backfill.running) {
+                            Text(if (backfill.running) "Working…" else "Fetch missing")
+                        }
+                    }
+                }
+            }
             item { SectionHeader("Downloaded · ${downloads.size}") }
             items(downloads, key = { "downloaded-${it.id}" }) { track ->
                 TrackRow(
@@ -467,6 +516,9 @@ private fun DownloadsTab(
                     liked = likedIds.contains(track.id),
                     downloaded = downloadedIds.contains(track.id),
                     onPlay = { vm.play(track, downloads) },
+                    onStartRadio = { vm.startRadio(track) },
+                    onPlayNext = { vm.playNext(track) },
+                    onAddToQueue = { vm.addToQueue(track) },
                     onToggleLike = { vm.toggleLike(track) },
                     onDownload = {},
                     onRemoveDownload = {
