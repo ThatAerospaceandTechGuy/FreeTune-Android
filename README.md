@@ -15,9 +15,9 @@ A free, ad-free, fully local YouTube music player for Android.
 
 1. Open [freetunes.pages.dev](https://freetunes.pages.dev) for every
    version with checksums, or use [Releases](https://github.com/ThatAerospaceandTechGuy/FreeTune-Android/releases/latest)
-   and download `FreeTune-0.9.0.apk` directly.
+   and download `FreeTune-0.9.1.apk` directly.
 2. Optionally check the APK against the SHA-256 listed in the release notes:
-   `sha256sum FreeTune-0.9.0.apk`.
+   `sha256sum FreeTune-0.9.1.apk`.
 3. Transfer it to an Android phone (Android 8.0+).
 4. Tap the APK and allow "install unknown apps" for your file manager/browser.
 5. Open FreeTune, grant notification permission, and search for music.
@@ -64,6 +64,11 @@ See `site/README.md` for details.
 
 ## Features in this version
 
+- Equalizer with device presets, per-band levels, bass boost and virtualizer. It
+  binds to the active player audio session and stays off until you enable it
+- Wallpaper-based dynamic colour on Android 12 and newer, with the FreeTune
+  palette as the fallback
+- "Forgotten favourites" shelf for liked songs you have not played in a month
 - Queue editing: remove a song, move it up or down, clear everything after the
   current track, and save the live queue as a playlist
 - Artist pages: every artist in your likes, history or downloads opens a page with
@@ -234,6 +239,10 @@ they are fully playable inside FreeTune.
 - Only `freetune://track/<id>` links are handled; youtube.com links are not
   intercepted.
 - Playback speed is a global setting and applies to every song.
+- Equalizer support and the number of bands depend on the phone, audio output and
+  headphones. Some Bluetooth devices apply their own effects and ignore app ones.
+- Dynamic colour needs Android 12 or newer; older versions keep the FreeTune
+  palette.
 - No cross-device sync, accounts, chat, or cloud features by design.
 
 ## Updating the extractor

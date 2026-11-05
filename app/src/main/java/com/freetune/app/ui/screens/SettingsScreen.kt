@@ -49,13 +49,18 @@ import com.freetune.app.playback.OverlayService
 import com.freetune.app.ui.MainViewModel
 
 @Composable
-fun SettingsScreen(vm: MainViewModel, onOpenStats: () -> Unit) {
+fun SettingsScreen(
+    vm: MainViewModel,
+    onOpenStats: () -> Unit,
+    onOpenEqualizer: () -> Unit
+) {
     val quality by vm.quality.collectAsStateWithLifecycle()
     val wifiOnly by vm.wifiOnly.collectAsStateWithLifecycle()
     val floatingControls by vm.floatingControls.collectAsStateWithLifecycle()
     val autoplay by vm.autoplay.collectAsStateWithLifecycle()
     val incognito by vm.incognito.collectAsStateWithLifecycle()
     val speed by vm.speed.collectAsStateWithLifecycle()
+    val dynamicColor by vm.dynamicColor.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showEraseDialog by rememberSaveable { mutableStateOf(false) }
     var pendingOverlay by rememberSaveable { mutableStateOf(false) }
@@ -213,6 +218,35 @@ fun SettingsScreen(vm: MainViewModel, onOpenStats: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        SettingsCard(title = "Appearance") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Wallpaper colours", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Use the system palette on Android 12 and newer",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = dynamicColor, onCheckedChange = vm::setDynamicColor)
+            }
+        }
+
+        SettingsCard(title = "Equalizer") {
+            Text(
+                "Device presets, per-band levels, bass boost and virtualizer. " +
+                    "Support and available bands depend on the phone and headphones.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = onOpenEqualizer) {
+                Text("Open equalizer")
+            }
         }
 
         SettingsCard(title = "Library & stats") {

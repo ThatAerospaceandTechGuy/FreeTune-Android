@@ -17,6 +17,7 @@ import com.freetune.app.data.model.AudioQuality
 import com.freetune.app.data.model.Playlist
 import com.freetune.app.data.model.Track
 import com.freetune.app.data.yt.YouTubeService
+import com.freetune.app.playback.EqualizerUiState
 import com.freetune.app.playback.OverlayService
 import com.freetune.app.playback.PlayerUiState
 import com.freetune.app.playback.RepeatMode
@@ -122,6 +123,8 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     val autoplay: StateFlow<Boolean> = container.settings.autoplay
     val incognito: StateFlow<Boolean> = container.settings.incognito
     val speed: StateFlow<Float> = container.settings.speed
+    val equalizer: StateFlow<EqualizerUiState> = container.playerManager.effects.state
+    val dynamicColor: StateFlow<Boolean> = container.settings.dynamicColor
     val recentSearches: StateFlow<List<String>> = container.settings.recentSearches
     val downloadStatuses: StateFlow<Map<String, DownloadStatus>> = DownloadStatusStore.items
 
@@ -531,6 +534,23 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun setSpeed(value: Float) = container.playerManager.setSpeed(value)
+
+    fun setEqualizerEnabled(value: Boolean) =
+        container.playerManager.effects.setEnabled(value)
+
+    fun setEqualizerPreset(index: Int) =
+        container.playerManager.effects.setPreset(index)
+
+    fun setEqualizerBand(index: Int, levelMb: Int) =
+        container.playerManager.effects.setBand(index, levelMb)
+
+    fun setBassBoost(percent: Int) =
+        container.playerManager.effects.setBassBoost(percent)
+
+    fun setVirtualizer(percent: Int) =
+        container.playerManager.effects.setVirtualizer(percent)
+
+    fun setDynamicColor(enabled: Boolean) = container.settings.setDynamicColor(enabled)
 
     fun clearRecentSearches() = container.settings.clearRecentSearches()
 

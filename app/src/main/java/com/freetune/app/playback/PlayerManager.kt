@@ -90,6 +90,9 @@ class PlayerManager(
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
 
+    /** Equalizer, bass boost and virtualizer bound to this player's audio session. */
+    val effects = AudioEffectController(context, settings)
+
     /** Called whenever a new track starts, including autoplay picks. */
     var onTrackStarted: ((Track) -> Unit)? = null
 
@@ -128,6 +131,10 @@ class PlayerManager(
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _state.value = _state.value.copy(isPlaying = isPlaying)
                 if (!isPlaying) saveSession()
+            }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                effects.attach(audioSessionId)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -227,6 +234,7 @@ class PlayerManager(
             }
         }
 
+        effects.attach(player.audioSessionId)
         restoreSession()
     }
 

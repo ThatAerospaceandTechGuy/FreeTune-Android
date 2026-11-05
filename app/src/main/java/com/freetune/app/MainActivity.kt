@@ -10,7 +10,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.compose.runtime.getValue
 import com.freetune.app.data.yt.YouTubeService
 import com.freetune.app.playback.OverlayService
 import kotlinx.coroutines.launch
@@ -34,7 +36,9 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            FreeTuneTheme {
+            val dynamicColor by (application as FreeTuneApp)
+                .container.settings.dynamicColor.collectAsStateWithLifecycle()
+            FreeTuneTheme(dynamicColor = dynamicColor) {
                 FreeTuneRoot()
             }
         }

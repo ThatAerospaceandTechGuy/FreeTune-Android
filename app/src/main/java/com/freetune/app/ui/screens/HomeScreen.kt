@@ -64,6 +64,13 @@ fun HomeScreen(
     val quickPicks = remember {
         listOf("Top songs 2026", "Lo-fi beats", "Chill hits", "Workout music", "Trending music")
     }
+    val forgotten = remember(liked) {
+        val month = 30L * 24 * 60 * 60 * 1000
+        liked.filter { track ->
+            track.lastPlayedAt == 0L ||
+                System.currentTimeMillis() - track.lastPlayedAt > month
+        }.take(8)
+    }
 
     LaunchedEffect(Unit) { vm.ensureDiscoverLoaded() }
 
@@ -225,6 +232,25 @@ fun HomeScreen(
                 ) {
                     items(liked.take(8), key = { "liked-${it.id}" }) { track ->
                         TrackCard(track = track, onClick = { vm.play(track, liked) })
+                    }
+                }
+            }
+        }
+
+        if (forgotten.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    "Forgotten favourites",
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+            }
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp)
+                ) {
+                    items(forgotten, key = { "forgotten-${it.id}" }) { track ->
+                        TrackCard(track = track, onClick = { vm.play(track, forgotten) })
                     }
                 }
             }

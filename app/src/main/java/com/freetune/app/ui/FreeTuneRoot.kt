@@ -39,6 +39,7 @@ import com.freetune.app.ui.components.AddToPlaylistDialog
 import com.freetune.app.ui.components.MiniPlayer
 import com.freetune.app.ui.components.PlaylistDownloadDialog
 import com.freetune.app.ui.screens.ArtistScreen
+import com.freetune.app.ui.screens.EqualizerScreen
 import com.freetune.app.ui.screens.HomeScreen
 import com.freetune.app.ui.screens.LibraryScreen
 import com.freetune.app.ui.screens.PlayerScreen
@@ -56,6 +57,7 @@ private object Routes {
     const val PLAYLIST = "playlist/{playlistId}"
     const val ARTIST = "artist/{artist}"
     const val STATS = "stats"
+    const val EQUALIZER = "equalizer"
 
     fun playlist(id: Long) = "playlist/$id"
 
@@ -188,8 +190,14 @@ fun FreeTuneRoot() {
                     vm = vm,
                     onOpenStats = {
                         navController.navigate(Routes.STATS) { launchSingleTop = true }
+                    },
+                    onOpenEqualizer = {
+                        navController.navigate(Routes.EQUALIZER) { launchSingleTop = true }
                     }
                 )
+            }
+            composable(Routes.EQUALIZER) {
+                EqualizerScreen(vm = vm, onBack = { navController.popBackStack() })
             }
             composable(Routes.STATS) {
                 StatsScreen(vm = vm, onBack = { navController.popBackStack() })
