@@ -15,9 +15,9 @@ A free, ad-free, fully local YouTube music player for Android.
 
 1. Open [freetunes.pages.dev](https://freetunes.pages.dev) for every
    version with checksums, or use [Releases](https://github.com/ThatAerospaceandTechGuy/FreeTune-Android/releases/latest)
-   and download `FreeTune-0.9.1.apk` directly.
+   and download `FreeTune-0.9.2.apk` directly.
 2. Optionally check the APK against the SHA-256 listed in the release notes:
-   `sha256sum FreeTune-0.9.1.apk`.
+   `sha256sum FreeTune-0.9.2.apk`.
 3. Transfer it to an Android phone (Android 8.0+).
 4. Tap the APK and allow "install unknown apps" for your file manager/browser.
 5. Open FreeTune, grant notification permission, and search for music.
@@ -64,6 +64,8 @@ See `site/README.md` for details.
 
 ## Features in this version
 
+- Home-screen widget with the current song and previous, play/pause and next
+  controls; it follows queue and notification playback state
 - Equalizer with device presets, per-band levels, bass boost and virtualizer. It
   binds to the active player audio session and stays off until you enable it
 - Wallpaper-based dynamic colour on Android 12 and newer, with the FreeTune

@@ -9,9 +9,12 @@ import com.freetune.app.data.repo.MusicRepository
 import com.freetune.app.data.session.SessionStore
 import com.freetune.app.data.settings.SettingsStore
 import com.freetune.app.playback.PlayerManager
+import com.freetune.app.widget.PlaybackWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
@@ -60,6 +63,21 @@ class AppContainer(
             if (!settings.incognito.value) {
                 appScope.launch { repository.markPlayed(track) }
             }
+        }
+
+        // Keep the home-screen widget in step with playback and queue changes.
+        appScope.launch {
+            playerManager.state
+                .map { state ->
+                    listOf(
+                        state.current?.id,
+                        state.current?.title,
+                        state.current?.artist,
+                        state.isPlaying
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { PlaybackWidgetProvider.updateAll(this@AppContainer.context) }
         }
     }
 }

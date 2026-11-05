@@ -27,6 +27,7 @@ const siteUrl = (process.env.SITE_URL || "https://freetunes.pages.dev").replace(
 const github = "https://github.com/ThatAerospaceandTechGuy/FreeTune-Android";
 
 const NOTES = {
+  "0.9.2": "Home-screen playback widget",
   "0.9.1": "Equalizer, dynamic colours, forgotten favourites",
   "0.9.0": "Queue editing, artist pages, backup, playlist import, stats",
   "0.8.4": "Lyrics backfill for existing downloads",
