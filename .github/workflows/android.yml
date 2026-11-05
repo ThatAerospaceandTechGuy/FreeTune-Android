@@ -16,7 +16,8 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
 
       - uses: gradle/actions/setup-gradle@v4
 
