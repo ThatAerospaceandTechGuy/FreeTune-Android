@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -20,11 +21,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,6 +50,7 @@ fun SearchScreen(vm: MainViewModel) {
     val state by vm.search.collectAsStateWithLifecycle()
     val likedIds by vm.likedIds.collectAsStateWithLifecycle()
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
+    val recentSearches by vm.recentSearches.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
 
@@ -104,7 +108,11 @@ fun SearchScreen(vm: MainViewModel) {
                 ErrorCard(message = state.error!!) { vm.submitSearch() }
             }
 
-            !state.hasSearched -> SearchIdle()
+            !state.hasSearched -> SearchIdle(
+                recent = recentSearches,
+                onPick = vm::searchNow,
+                onClear = vm::clearRecentSearches
+            )
 
             state.results.isEmpty() -> EmptyHint(
                 text = "No results for \"${state.query}\"",
@@ -146,11 +154,15 @@ fun SearchScreen(vm: MainViewModel) {
 }
 
 @Composable
-private fun SearchIdle() {
+private fun SearchIdle(
+    recent: List<String>,
+    onPick: (String) -> Unit,
+    onClear: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 40.dp),
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -173,5 +185,33 @@ private fun SearchIdle() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+
+        if (recent.isNotEmpty()) {
+            Spacer(Modifier.height(28.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recent searches",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onClear) { Text("Clear") }
+            }
+            Spacer(Modifier.height(6.dp))
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(recent) { query ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { onPick(query) },
+                        label = { Text(query) }
+                    )
+                }
+            }
+        }
     }
 }

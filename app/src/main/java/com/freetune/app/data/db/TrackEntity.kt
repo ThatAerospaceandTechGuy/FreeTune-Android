@@ -1,5 +1,6 @@
 package com.freetune.app.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.freetune.app.data.model.Track
@@ -15,7 +16,8 @@ data class TrackEntity(
     val contentUri: String?,
     val liked: Boolean,
     val lastPlayedAt: Long,
-    val addedAt: Long
+    val addedAt: Long,
+    @ColumnInfo(defaultValue = "0") val playCount: Int = 0
 )
 
 fun TrackEntity.toTrack(): Track = Track(
@@ -27,7 +29,8 @@ fun TrackEntity.toTrack(): Track = Track(
     localPath = localPath,
     contentUri = contentUri,
     liked = liked,
-    lastPlayedAt = lastPlayedAt
+    lastPlayedAt = lastPlayedAt,
+    playCount = playCount
 )
 
 fun Track.toEntity(addedAt: Long = System.currentTimeMillis()): TrackEntity = TrackEntity(
@@ -40,5 +43,6 @@ fun Track.toEntity(addedAt: Long = System.currentTimeMillis()): TrackEntity = Tr
     contentUri = contentUri,
     liked = liked,
     lastPlayedAt = lastPlayedAt,
-    addedAt = addedAt
+    addedAt = addedAt,
+    playCount = playCount
 )

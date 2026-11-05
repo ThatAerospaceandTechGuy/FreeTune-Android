@@ -23,8 +23,8 @@ android {
         applicationId = "com.freetune.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.8.4"
+        versionCode = 14
+        versionName = "0.9.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -102,5 +102,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.newpipe.extractor)
     coreLibraryDesugaring(libs.desugar)
+    testImplementation(libs.junit)
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -15,9 +15,9 @@ A free, ad-free, fully local YouTube music player for Android.
 
 1. Open [freetunes.pages.dev](https://freetunes.pages.dev) for every
    version with checksums, or use [Releases](https://github.com/ThatAerospaceandTechGuy/FreeTune-Android/releases/latest)
-   and download `FreeTune-0.8.4.apk` directly.
+   and download `FreeTune-0.9.0.apk` directly.
 2. Optionally check the APK against the SHA-256 listed in the release notes:
-   `sha256sum FreeTune-0.8.4.apk`.
+   `sha256sum FreeTune-0.9.0.apk`.
 3. Transfer it to an Android phone (Android 8.0+).
 4. Tap the APK and allow "install unknown apps" for your file manager/browser.
 5. Open FreeTune, grant notification permission, and search for music.
@@ -64,6 +64,20 @@ See `site/README.md` for details.
 
 ## Features in this version
 
+- Queue editing: remove a song, move it up or down, clear everything after the
+  current track, and save the live queue as a playlist
+- Artist pages: every artist in your likes, history or downloads opens a page with
+  their songs; play all, shuffle or start radio from there
+- Playlist tools: rename, duplicate, and search inside a playlist
+- Import a public YouTube or YouTube Music playlist by pasting its link; its songs
+  become a normal local playlist that can be reordered and downloaded
+- Library backup and restore as JSON: playlists, likes, history and play counts
+- Listening stats: total plays and minutes, plus top artists and songs, computed
+  entirely on the device
+- Playback speed from 0.75x to 2x with pitch preserved
+- Share any song from its menu or the player; `freetune://track/<id>` links open a
+  track directly in FreeTune
+- Recent-search chips on the search screen, with one tap to run them again
 - Redesigned Home with a daily mix, quick-pick chips, "Jump back in" and liked songs
 - YouTube search that starts automatically as you type (2+ characters, 650 ms debounce)
   with clear idle, loading, and no-results states
@@ -208,6 +222,18 @@ they are fully playable inside FreeTune.
 - Embedded ID3/MP4 tags are not written yet; metadata is stored in the local database.
 - YouTube extraction uses NewPipeExtractor's best-effort mode. YouTube changes can
   temporarily break search or stream extraction until the extractor dependency is updated.
+- Listening stats count plays from 0.9.0 onward; older history is kept but was
+  never counted, so it does not appear in the totals.
+- Artist pages combine your local tracks with a YouTube search for that artist.
+  They are not a complete YouTube Music discography, so covers and guest uploads
+  can appear.
+- Playlist import needs a public playlist link and a connection. Private or
+  region-locked entries are skipped.
+- Backups contain the library database, not audio files. A restored download is
+  playable only if the file still exists at the saved path.
+- Only `freetune://track/<id>` links are handled; youtube.com links are not
+  intercepted.
+- Playback speed is a global setting and applies to every song.
 - No cross-device sync, accounts, chat, or cloud features by design.
 
 ## Updating the extractor

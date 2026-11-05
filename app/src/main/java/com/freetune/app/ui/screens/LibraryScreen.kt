@@ -16,12 +16,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Shuffle
@@ -33,9 +36,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,6 +61,7 @@ import com.freetune.app.ui.LyricsBackfillState
 import com.freetune.app.ui.MainViewModel
 import com.freetune.app.ui.components.CreatePlaylistDialog
 import com.freetune.app.ui.components.EmptyHint
+import com.freetune.app.ui.components.ImportPlaylistDialog
 import com.freetune.app.ui.components.SectionHeader
 import com.freetune.app.ui.components.TrackRow
 import com.freetune.app.ui.components.downloadOrToast
@@ -65,12 +69,23 @@ import com.freetune.app.ui.components.downloadOrToast
 @Composable
 fun LibraryScreen(
     vm: MainViewModel,
-    onOpenPlaylist: (Long) -> Unit
+    onOpenPlaylist: (Long) -> Unit,
+    onOpenArtist: (String) -> Unit
 ) {
     val playlists by vm.playlists.collectAsStateWithLifecycle()
     val liked by vm.liked.collectAsStateWithLifecycle()
     val downloads by vm.downloads.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
+    val artists = remember(liked, downloads, recent) {
+        (liked + recent + downloads)
+            .filter {
+                it.artist.isNotBlank() &&
+                    !it.artist.equals("Unknown artist", ignoreCase = true)
+            }
+            .groupBy { it.artist }
+            .map { (name, tracks) -> name to tracks.distinctBy { it.id } }
+            .sortedBy { it.first.lowercase() }
+    }
     val likedIds by vm.likedIds.collectAsStateWithLifecycle()
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
     val statuses by vm.downloadStatuses.collectAsStateWithLifecycle()
@@ -79,6 +94,7 @@ fun LibraryScreen(
 
     var tab by rememberSaveable { mutableStateOf(0) }
     var showCreate by rememberSaveable { mutableStateOf(false) }
+    var showImport by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -94,6 +110,7 @@ fun LibraryScreen(
                 modifier = Modifier.weight(1f)
             )
             if (tab == 0) {
+                TextButton(onClick = { showImport = true }) { Text("Import") }
                 FilledTonalButton(onClick = { showCreate = true }) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
@@ -106,8 +123,9 @@ fun LibraryScreen(
             }
         }
 
-        TabRow(selectedTabIndex = tab) {
-            listOf("Playlists", "Liked", "Downloads", "Recent").forEachIndexed { index, label ->
+        ScrollableTabRow(selectedTabIndex = tab, edgePadding = 16.dp) {
+            listOf("Playlists", "Liked", "Downloads", "Recent", "Artists")
+                .forEachIndexed { index, label ->
                 Tab(
                     selected = tab == index,
                     onClick = { tab = index },
@@ -167,7 +185,7 @@ fun LibraryScreen(
                 context = context
             )
 
-            else -> {
+            3 -> {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Row(
                         modifier = Modifier
@@ -211,6 +229,7 @@ fun LibraryScreen(
                     }
                 }
             }
+            else -> ArtistsTab(artists = artists, onOpen = onOpenArtist)
         }
     }
 
@@ -220,6 +239,16 @@ fun LibraryScreen(
             onCreate = { name ->
                 vm.createPlaylist(name)
                 showCreate = false
+            }
+        )
+    }
+
+    if (showImport) {
+        ImportPlaylistDialog(
+            onDismiss = { showImport = false },
+            onImport = { url ->
+                vm.importPlaylist(url)
+                showImport = false
             }
         )
     }
@@ -557,6 +586,69 @@ private fun ActiveDownloadRow(status: DownloadStatus) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun ArtistsTab(
+    artists: List<Pair<String, List<Track>>>,
+    onOpen: (String) -> Unit
+) {
+    if (artists.isEmpty()) {
+        EmptyHint(
+            "Artists you like, play or download will appear here",
+            Modifier.fillMaxSize()
+        )
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        items(artists, key = { it.first }) { (name, tracks) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpen(name) }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${tracks.size} songs",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

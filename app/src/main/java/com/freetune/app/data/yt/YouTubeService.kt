@@ -18,6 +18,11 @@ data class PlaybackSource(
     val bitrate: Int
 )
 
+data class ImportedPlaylist(
+    val name: String,
+    val tracks: List<Track>
+)
+
 object YouTubeService {
 
     private val service = ServiceList.YouTube
@@ -35,6 +40,33 @@ object YouTubeService {
                 .mapNotNull { item -> item.toTrack() }
                 .take(limit)
                 .toList()
+        }
+
+    /**
+     * Imports a public YouTube or YouTube Music playlist by URL. NewPipeExtractor
+     * handles both youtube.com/playlist and music.youtube.com/playlist links.
+     */
+    suspend fun importPlaylist(url: String, limit: Int = 200): ImportedPlaylist =
+        withContext(Dispatchers.IO) {
+            val handler = service.playlistLHFactory.fromUrl(url.trim())
+                ?: throw IOException("That link is not a YouTube playlist.")
+            val extractor = service.getPlaylistExtractor(handler)
+            extractor.fetchPage()
+            val tracks = extractor.initialPage.items
+                .asSequence()
+                .filterIsInstance<StreamInfoItem>()
+                .filter { it.duration > 0 }
+                .mapNotNull { item -> item.toTrack() }
+                .distinctBy { it.id }
+                .take(limit)
+                .toList()
+            if (tracks.isEmpty()) {
+                throw IOException("That playlist has no playable songs.")
+            }
+            ImportedPlaylist(
+                name = extractor.name?.trim().orEmpty().ifBlank { "Imported playlist" },
+                tracks = tracks
+            )
         }
 
     /**

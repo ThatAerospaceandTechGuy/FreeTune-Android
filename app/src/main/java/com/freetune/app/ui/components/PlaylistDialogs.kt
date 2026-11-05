@@ -222,6 +222,50 @@ fun PlaylistDownloadDialog(
 }
 
 @Composable
+fun ImportPlaylistDialog(
+    onDismiss: () -> Unit,
+    onImport: (String) -> Unit
+) {
+    var url by rememberSaveable { mutableStateOf("") }
+    val valid = url.contains("list=") || url.startsWith("http")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import a playlist") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Paste a public YouTube or YouTube Music playlist link. Its songs are " +
+                        "added as a normal playlist you can download and reorder.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("https://music.youtube.com/playlist?list=…") },
+                    shape = RoundedCornerShape(14.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = valid,
+                onClick = {
+                    onImport(url.trim())
+                    onDismiss()
+                }
+            ) { Text("Import") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
 fun CreatePlaylistDialog(
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit

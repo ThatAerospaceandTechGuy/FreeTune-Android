@@ -1,6 +1,8 @@
 package com.freetune.app.ui.screens
 
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,11 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -44,15 +49,22 @@ import com.freetune.app.playback.OverlayService
 import com.freetune.app.ui.MainViewModel
 
 @Composable
-fun SettingsScreen(vm: MainViewModel) {
+fun SettingsScreen(vm: MainViewModel, onOpenStats: () -> Unit) {
     val quality by vm.quality.collectAsStateWithLifecycle()
     val wifiOnly by vm.wifiOnly.collectAsStateWithLifecycle()
     val floatingControls by vm.floatingControls.collectAsStateWithLifecycle()
     val autoplay by vm.autoplay.collectAsStateWithLifecycle()
     val incognito by vm.incognito.collectAsStateWithLifecycle()
+    val speed by vm.speed.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showEraseDialog by rememberSaveable { mutableStateOf(false) }
     var pendingOverlay by rememberSaveable { mutableStateOf(false) }
+    val exportLibrary = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let(vm::exportLibrary) }
+    val importLibrary = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let(vm::importLibrary) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
@@ -143,6 +155,23 @@ fun SettingsScreen(vm: MainViewModel) {
                 }
                 Switch(checked = autoplay, onCheckedChange = vm::setAutoplay)
             }
+            Spacer(Modifier.height(14.dp))
+            Text("Playback speed", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Pitch stays the same. Applies to the current and next songs.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(listOf(0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)) { option ->
+                    FilterChip(
+                        selected = kotlin.math.abs(speed - option) < 0.01f,
+                        onClick = { vm.setSpeed(option) },
+                        label = { Text(if (option == 1f) "1×" else "${option}×") }
+                    )
+                }
+            }
             Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -184,6 +213,30 @@ fun SettingsScreen(vm: MainViewModel) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        SettingsCard(title = "Library & stats") {
+            Text(
+                "Back up playlists, likes, history and play counts as a JSON file. " +
+                    "Downloads are not copied, and importing replaces the current library.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row {
+                TextButton(onClick = { exportLibrary.launch("freetune-library.json") }) {
+                    Text("Export")
+                }
+                TextButton(
+                    onClick = {
+                        importLibrary.launch(arrayOf("application/json", "text/plain"))
+                    }
+                ) {
+                    Text("Import")
+                }
+            }
+            TextButton(onClick = onOpenStats) {
+                Text("Listening stats")
+            }
         }
 
         SettingsCard(title = "Privacy") {

@@ -14,15 +14,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -32,6 +35,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,6 +59,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freetune.app.data.model.Track
 import com.freetune.app.ui.MainViewModel
+import com.freetune.app.ui.components.EmptyHint
 import com.freetune.app.ui.components.LocalSongsDialog
 import com.freetune.app.ui.components.TrackRow
 import com.freetune.app.ui.components.downloadOrToast
@@ -77,6 +82,9 @@ fun PlaylistScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var showLocalSongs by rememberSaveable { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
 
     // Reordering: `ordered` is the list the user sees while dragging. It is committed
     // to the database on drop and resynced from the database afterwards.
@@ -127,11 +135,38 @@ fun PlaylistScreen(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            IconButton(onClick = {
+                showSearch = !showSearch
+                if (!showSearch) query = ""
+            }) {
+                Icon(Icons.Rounded.Search, contentDescription = "Search in playlist")
+            }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = "Options")
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Search in playlist") },
+                        onClick = {
+                            menuOpen = false
+                            showSearch = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Rename playlist") },
+                        onClick = {
+                            menuOpen = false
+                            showRename = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Duplicate playlist") },
+                        onClick = {
+                            menuOpen = false
+                            playlist?.let { vm.duplicatePlaylist(it) }
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Add songs from this device") },
                         onClick = {
@@ -200,7 +235,35 @@ fun PlaylistScreen(
             }
         }
 
-        if (ordered.size > 1) {
+        if (showSearch) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text("Search this playlist") },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    }
+                )
+                TextButton(onClick = {
+                    showSearch = false
+                    query = ""
+                }) { Text("Done") }
+            }
+        }
+
+        if (ordered.size > 1 && query.isBlank()) {
             Text(
                 text = "Long-press a song to drag it into a new position",
                 style = MaterialTheme.typography.labelSmall,
@@ -242,6 +305,41 @@ fun PlaylistScreen(
                     Spacer(Modifier.width(6.dp))
                     Text("Add from device")
                 }
+            }
+        } else if (query.isNotBlank() &&
+            ordered.none { it.title.contains(query, true) || it.artist.contains(query, true) }
+        ) {
+            EmptyHint("No songs match \"$query\"", Modifier.fillMaxSize())
+        } else if (query.isNotBlank()) {
+            val matches = ordered.filter {
+                it.title.contains(query, true) || it.artist.contains(query, true)
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                items(matches, key = { it.id }) { track ->
+                    val downloaded = downloadedIds.contains(track.id)
+                    TrackRow(
+                        track = track,
+                        liked = likedIds.contains(track.id),
+                        downloaded = downloaded,
+                        onPlay = { vm.play(track, ordered) },
+                        onStartRadio = { vm.startRadio(track) },
+                        onPlayNext = { vm.playNext(track) },
+                        onAddToQueue = { vm.addToQueue(track) },
+                        onToggleLike = { vm.toggleLike(track) },
+                        onDownload = {
+                            downloadOrToast(context, downloaded) {
+                                vm.download(track, folder = playlist?.name)
+                            }
+                        },
+                        onAddToPlaylist = { vm.showPlaylistPicker(track) },
+                        onRemoveFromPlaylist = { vm.removeFromPlaylist(playlistId, track) },
+                        showDownload = track.contentUri == null
+                    )
+                }
+                item { Spacer(Modifier.height(16.dp)) }
             }
         } else {
             LazyColumn(
@@ -332,6 +430,35 @@ fun PlaylistScreen(
                 item { Spacer(Modifier.height(16.dp)) }
             }
         }
+    }
+
+    if (showRename) {
+        var name by rememberSaveable { mutableStateOf(playlist?.name.orEmpty()) }
+        AlertDialog(
+            onDismissRequest = { showRename = false },
+            title = { Text("Rename playlist") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Playlist name") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = name.isNotBlank(),
+                    onClick = {
+                        vm.renamePlaylist(playlistId, name)
+                        showRename = false
+                    }
+                ) { Text("Rename") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRename = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (confirmDelete) {

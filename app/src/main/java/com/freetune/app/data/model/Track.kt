@@ -9,7 +9,8 @@ data class Track(
     val localPath: String? = null,
     val contentUri: String? = null,
     val liked: Boolean = false,
-    val lastPlayedAt: Long = 0L
+    val lastPlayedAt: Long = 0L,
+    val playCount: Int = 0
 ) {
     /** True when FreeTune downloaded this song into its own folder. */
     val isDownloaded: Boolean get() = !localPath.isNullOrBlank()

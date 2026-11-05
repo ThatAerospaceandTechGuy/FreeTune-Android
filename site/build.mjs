@@ -27,6 +27,7 @@ const siteUrl = (process.env.SITE_URL || "https://freetunes.pages.dev").replace(
 const github = "https://github.com/ThatAerospaceandTechGuy/FreeTune-Android";
 
 const NOTES = {
+  "0.9.0": "Queue editing, artist pages, backup, playlist import, stats",
   "0.8.4": "Lyrics backfill for existing downloads",
   "0.8.3": "Lyrics saved beside every download",
   "0.8.2": "Stream recovery and automatic lyrics",

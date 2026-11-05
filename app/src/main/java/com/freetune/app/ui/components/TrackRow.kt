@@ -1,6 +1,7 @@
 package com.freetune.app.ui.components
 
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,6 +97,7 @@ fun TrackRow(
     leading: (@Composable () -> Unit)? = null
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -209,6 +211,13 @@ fun TrackRow(
                             }
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text("Share") },
+                        onClick = {
+                            menuOpen = false
+                            shareTrack(context, track)
+                        }
+                    )
                 }
             }
         }
@@ -250,6 +259,32 @@ fun EmptyHint(text: String, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+/** Shares a song as a plain-text message with a YouTube Music link. */
+fun shareTrack(context: Context, track: Track) {
+    val url = if (track.isLocalFile) {
+        null
+    } else {
+        "https://music.youtube.com/watch?v=${track.id}"
+    }
+    val text = buildString {
+        append(track.title)
+        append(" — ")
+        append(track.artist)
+        if (url != null) {
+            append('\n')
+            append(url)
+        }
+    }
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+        putExtra(Intent.EXTRA_SUBJECT, track.title)
+    }
+    context.startActivity(
+        Intent.createChooser(send, "Share song").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
 }
 
 fun downloadOrToast(

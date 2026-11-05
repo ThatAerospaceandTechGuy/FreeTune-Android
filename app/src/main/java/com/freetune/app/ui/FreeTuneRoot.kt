@@ -1,5 +1,6 @@
 package com.freetune.app.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -37,12 +38,14 @@ import com.freetune.app.FreeTuneApp
 import com.freetune.app.ui.components.AddToPlaylistDialog
 import com.freetune.app.ui.components.MiniPlayer
 import com.freetune.app.ui.components.PlaylistDownloadDialog
+import com.freetune.app.ui.screens.ArtistScreen
 import com.freetune.app.ui.screens.HomeScreen
 import com.freetune.app.ui.screens.LibraryScreen
 import com.freetune.app.ui.screens.PlayerScreen
 import com.freetune.app.ui.screens.PlaylistScreen
 import com.freetune.app.ui.screens.SearchScreen
 import com.freetune.app.ui.screens.SettingsScreen
+import com.freetune.app.ui.screens.StatsScreen
 
 private object Routes {
     const val HOME = "home"
@@ -51,8 +54,12 @@ private object Routes {
     const val SETTINGS = "settings"
     const val PLAYER = "player"
     const val PLAYLIST = "playlist/{playlistId}"
+    const val ARTIST = "artist/{artist}"
+    const val STATS = "stats"
 
     fun playlist(id: Long) = "playlist/$id"
+
+    fun artist(name: String) = "artist/${Uri.encode(name)}"
 }
 
 private data class TabItem(
@@ -170,10 +177,23 @@ fun FreeTuneRoot() {
                     vm = vm,
                     onOpenPlaylist = { id ->
                         navController.navigate(Routes.playlist(id)) { launchSingleTop = true }
+                    },
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.artist(name)) { launchSingleTop = true }
                     }
                 )
             }
-            composable(Routes.SETTINGS) { SettingsScreen(vm) }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    vm = vm,
+                    onOpenStats = {
+                        navController.navigate(Routes.STATS) { launchSingleTop = true }
+                    }
+                )
+            }
+            composable(Routes.STATS) {
+                StatsScreen(vm = vm, onBack = { navController.popBackStack() })
+            }
             composable(
                 route = Routes.PLAYLIST,
                 arguments = listOf(navArgument("playlistId") { type = NavType.LongType })
@@ -185,8 +205,27 @@ fun FreeTuneRoot() {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(
+                route = Routes.ARTIST,
+                arguments = listOf(navArgument("artist") { type = NavType.StringType })
+            ) { entry ->
+                val artist = entry.arguments?.getString("artist")
+                    ?.let { Uri.decode(it) }
+                    .orEmpty()
+                ArtistScreen(
+                    vm = vm,
+                    artist = artist,
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable(Routes.PLAYER) {
-                PlayerScreen(vm = vm, onBack = { navController.popBackStack() })
+                PlayerScreen(
+                    vm = vm,
+                    onBack = { navController.popBackStack() },
+                    onOpenArtist = { name ->
+                        navController.navigate(Routes.artist(name)) { launchSingleTop = true }
+                    }
+                )
             }
         }
     }

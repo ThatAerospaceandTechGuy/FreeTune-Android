@@ -34,6 +34,15 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists WHERE id = :id LIMIT 1")
     suspend fun find(id: Long): PlaylistEntity?
 
+    @Query("SELECT * FROM playlist_tracks WHERE playlistId = :playlistId ORDER BY position ASC")
+    suspend fun tracksOnce(playlistId: Long): List<PlaylistTrackEntity>
+
+    @Query("SELECT * FROM playlists")
+    suspend fun allPlaylists(): List<PlaylistEntity>
+
+    @Query("SELECT * FROM playlist_tracks")
+    suspend fun allPlaylistTracks(): List<PlaylistTrackEntity>
+
     @Insert
     suspend fun create(playlist: PlaylistEntity): Long
 

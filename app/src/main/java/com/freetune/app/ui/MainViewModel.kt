@@ -21,6 +21,7 @@ import com.freetune.app.playback.OverlayService
 import com.freetune.app.playback.PlayerUiState
 import com.freetune.app.playback.RepeatMode
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
 data class SearchUiState(
@@ -50,6 +52,20 @@ data class SearchUiState(
 data class PlaylistDownloadRequest(
     val playlist: Playlist,
     val tracks: List<Track>
+)
+
+data class ArtistUiState(
+    val name: String = "",
+    val tracks: List<Track> = emptyList(),
+    val loading: Boolean = false,
+    val error: String? = null
+)
+
+data class ListeningStats(
+    val totalPlays: Int = 0,
+    val totalMinutes: Long = 0,
+    val topTracks: List<Track> = emptyList(),
+    val topArtists: List<Pair<String, Int>> = emptyList()
 )
 
 data class LyricsUiState(
@@ -105,6 +121,8 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     val floatingControls: StateFlow<Boolean> = container.settings.floatingControls
     val autoplay: StateFlow<Boolean> = container.settings.autoplay
     val incognito: StateFlow<Boolean> = container.settings.incognito
+    val speed: StateFlow<Float> = container.settings.speed
+    val recentSearches: StateFlow<List<String>> = container.settings.recentSearches
     val downloadStatuses: StateFlow<Map<String, DownloadStatus>> = DownloadStatusStore.items
 
     private val _localSongs = MutableStateFlow(LocalSongsState())
@@ -128,6 +146,15 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     private val _lyricsBackfill = MutableStateFlow(LyricsBackfillState())
     val lyricsBackfill: StateFlow<LyricsBackfillState> = _lyricsBackfill.asStateFlow()
 
+    private val _artist = MutableStateFlow(ArtistUiState())
+    val artist: StateFlow<ArtistUiState> = _artist.asStateFlow()
+
+    private val _stats = MutableStateFlow(ListeningStats())
+    val stats: StateFlow<ListeningStats> = _stats.asStateFlow()
+
+    private val _importingPlaylist = MutableStateFlow(false)
+    val importingPlaylist: StateFlow<Boolean> = _importingPlaylist.asStateFlow()
+
     /** Emits once per manual skip so the UI can offer an Undo action. */
     private val _skipUndo = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val skipUndo: SharedFlow<Unit> = _skipUndo.asSharedFlow()
@@ -136,6 +163,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     private var localScanJob: Job? = null
     private var lyricsJob: Job? = null
     private var lyricsBackfillJob: Job? = null
+    private var artistJob: Job? = null
 
     init {
         // Lyrics are looked up once per track change, not on every position tick.
@@ -167,11 +195,18 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun submitSearch() {
-        val query = _search.value.query.trim()
-        if (query.isEmpty()) return
+        searchNow(_search.value.query)
+    }
+
+    /** Runs a search immediately, used by the keyboard action and history chips. */
+    fun searchNow(query: String) {
+        val clean = query.trim()
+        if (clean.isEmpty()) return
+        _search.update { it.copy(query = clean) }
+        container.settings.addRecentSearch(clean)
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            executeSearch(query, _search)
+            executeSearch(clean, _search)
         }
     }
 
@@ -437,6 +472,68 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
 
     fun jumpToQueue(position: Int) = container.playerManager.jumpToQueue(position)
 
+    fun removeFromQueue(position: Int) {
+        if (container.playerManager.removeFromQueue(position)) {
+            toast("Removed from queue")
+        }
+    }
+
+    fun moveQueueItem(from: Int, to: Int) {
+        container.playerManager.moveQueueItem(from, to)
+    }
+
+    fun clearUpcoming() {
+        val removed = container.playerManager.clearUpcoming()
+        if (removed > 0) toast("Cleared $removed upcoming")
+    }
+
+    /** Saves the live queue as a normal playlist, in queue order. */
+    fun saveQueueAsPlaylist(name: String) {
+        val tracks = playerState.value.queue
+        if (tracks.isEmpty()) {
+            toast("Queue is empty")
+            return
+        }
+        viewModelScope.launch {
+            val added = repository.saveQueueAsPlaylist(name, tracks)
+            toast(
+                if (added > 0) "Saved $added songs to ${name.trim().take(60)}"
+                else "Couldn't save the queue"
+            )
+        }
+    }
+
+    /** Fetches a public playlist and stores its songs as a new local playlist. */
+    fun importPlaylist(url: String) {
+        if (_importingPlaylist.value) return
+        if (url.isBlank()) {
+            toast("Paste a playlist link first")
+            return
+        }
+        viewModelScope.launch {
+            _importingPlaylist.value = true
+            toast("Importing playlist…")
+            try {
+                val imported = YouTubeService.importPlaylist(url)
+                val added = repository.saveQueueAsPlaylist(imported.name, imported.tracks)
+                toast(
+                    if (added > 0) "Imported $added songs into ${imported.name}"
+                    else "Couldn't import that playlist"
+                )
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                toast(friendly(t))
+            } finally {
+                _importingPlaylist.value = false
+            }
+        }
+    }
+
+    fun setSpeed(value: Float) = container.playerManager.setSpeed(value)
+
+    fun clearRecentSearches() = container.settings.clearRecentSearches()
+
     /** Pairs the current song with a `.lrc` file the user picks. */
     fun attachLyrics(uri: Uri) {
         val track = container.playerManager.state.value.current ?: return
@@ -535,6 +632,93 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun startRadio(track: Track) {
         container.playerManager.startRadio(track)
         toast("Starting radio")
+    }
+
+    /**
+     * Builds an artist page from what is already known locally (likes, recent,
+     * downloads) plus a YouTube search for that artist's songs.
+     */
+    fun loadArtist(name: String) {
+        val clean = name.trim()
+        if (clean.isBlank()) return
+        artistJob?.cancel()
+        _artist.value = ArtistUiState(name = clean, loading = true)
+        artistJob = viewModelScope.launch {
+            try {
+                val known = (liked.value + recent.value + downloads.value)
+                    .filter { it.artist.equals(clean, ignoreCase = true) }
+                val found = YouTubeService.search("$clean songs", 40)
+                    .filter { it.artist.contains(clean, ignoreCase = true) }
+                val fallback = if (found.size < 5) {
+                    YouTubeService.search(clean, 40)
+                } else {
+                    emptyList()
+                }
+                val tracks = (known + found + fallback).distinctBy { it.id }
+                _artist.value = ArtistUiState(
+                    name = clean,
+                    tracks = tracks,
+                    loading = false,
+                    error = null
+                )
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _artist.value = ArtistUiState(
+                    name = clean,
+                    loading = false,
+                    error = friendly(t)
+                )
+            }
+        }
+    }
+
+    /** Computes local-only listening statistics from the play counters. */
+    fun loadStats() {
+        viewModelScope.launch {
+            val played = repository.playedTracks()
+            val topTracks = played.sortedByDescending { it.playCount }.take(10)
+            val topArtists = played
+                .groupBy { it.artist }
+                .map { (artist, tracks) -> artist to tracks.sumOf { it.playCount } }
+                .sortedByDescending { it.second }
+                .take(10)
+            _stats.value = ListeningStats(
+                totalPlays = played.sumOf { it.playCount },
+                totalMinutes = played.sumOf { it.durationMs * it.playCount } / 60_000L,
+                topTracks = topTracks,
+                topArtists = topArtists
+            )
+        }
+    }
+
+    fun exportLibrary(uri: Uri) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                val json = repository.exportLibraryJson()
+                withContext(Dispatchers.IO) {
+                    container.context.contentResolver.openOutputStream(uri)?.use { output ->
+                        output.write(json.toByteArray(Charsets.UTF_8))
+                    } ?: error("Could not open the destination file")
+                }
+            }.isSuccess
+            toast(if (ok) "Library exported" else "Couldn't export the library")
+        }
+    }
+
+    fun importLibrary(uri: Uri) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                val raw = withContext(Dispatchers.IO) {
+                    container.context.contentResolver.openInputStream(uri)
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                        ?: error("Could not read the selected file")
+                }
+                repository.importLibraryJson(raw)
+            }.getOrDefault(false)
+            toast(if (ok) "Library imported" else "Couldn't import that backup")
+        }
     }
 
     fun showPlaylistPicker(track: Track) {
@@ -640,6 +824,20 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             repository.deletePlaylist(playlist.id)
             toast("Playlist deleted")
+        }
+    }
+
+    fun renamePlaylist(playlistId: Long, name: String) {
+        viewModelScope.launch {
+            val renamed = repository.renamePlaylist(playlistId, name)
+            toast(if (renamed) "Playlist renamed" else "Playlist name can't be empty")
+        }
+    }
+
+    fun duplicatePlaylist(playlist: Playlist) {
+        viewModelScope.launch {
+            val id = repository.duplicatePlaylist(playlist.id)
+            toast(if (id != null) "Playlist duplicated" else "Couldn't duplicate playlist")
         }
     }
 

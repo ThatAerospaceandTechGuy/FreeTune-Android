@@ -9,6 +9,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
@@ -122,6 +123,7 @@ class PlayerManager(
     private val relatedCache = LinkedHashMap<String, List<Track>>()
 
     init {
+        player.playbackParameters = PlaybackParameters(settings.speed.value)
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _state.value = _state.value.copy(isPlaying = isPlaying)
@@ -600,6 +602,68 @@ class PlayerManager(
         index = position
         playCurrent()
         return true
+    }
+
+    /**
+     * Removes an entry from the queue. Removing the playing song moves on to the
+     * next one; removing the last remaining song stops playback.
+     */
+    fun removeFromQueue(position: Int): Boolean {
+        if (position !in queue.indices) return false
+        val wasCurrent = position == index
+        val mutable = QueueOps.removeAt(queue, position)
+        if (mutable.isEmpty()) {
+            stop()
+            return true
+        }
+        val removedLast = wasCurrent && position > mutable.lastIndex
+        queue = mutable
+        index = when {
+            position < index -> index - 1
+            position == index -> index.coerceAtMost(mutable.lastIndex)
+            else -> index
+        }
+        if (removedLast) {
+            stop()
+            return true
+        }
+        _state.value = _state.value.copy(queue = queue)
+        saveSession()
+        if (wasCurrent) {
+            playCurrent()
+        } else if (player.mediaItemCount > 0) {
+            queuePrefetch()
+        }
+        return true
+    }
+
+    /** Moves a queue entry up or down, keeping the playing song current. */
+    fun moveQueueItem(from: Int, to: Int): Boolean {
+        if (from !in queue.indices || to !in queue.indices || from == to) return false
+        val currentId = queue.getOrNull(index)?.id
+        queue = QueueOps.move(queue, from, to)
+        index = queue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        _state.value = _state.value.copy(queue = queue)
+        saveSession()
+        if (player.mediaItemCount > 0) queuePrefetch()
+        return true
+    }
+
+    /** Drops everything after the current song. Returns how many were removed. */
+    fun clearUpcoming(): Int {
+        if (index !in queue.indices || index >= queue.lastIndex) return 0
+        val removed = queue.size - index - 1
+        queue = queue.take(index + 1)
+        _state.value = _state.value.copy(queue = queue)
+        saveSession()
+        return removed
+    }
+
+    /** Applies a speed between 0.5x and 2x without changing pitch. */
+    fun setSpeed(speed: Float) {
+        val clamped = speed.coerceIn(0.5f, 2f)
+        settings.setSpeed(clamped)
+        player.playbackParameters = PlaybackParameters(clamped)
     }
 
     /** Pass null to turn the timer off. */

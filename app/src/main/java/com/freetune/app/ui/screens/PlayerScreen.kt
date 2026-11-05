@@ -1,6 +1,7 @@
 package com.freetune.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.clickable
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,9 +63,14 @@ import com.freetune.app.ui.components.LyricsView
 import com.freetune.app.ui.components.QueueDialog
 import com.freetune.app.ui.components.SleepTimerDialog
 import com.freetune.app.ui.components.formatDuration
+import com.freetune.app.ui.components.shareTrack
 
 @Composable
-fun PlayerScreen(vm: MainViewModel, onBack: () -> Unit) {
+fun PlayerScreen(
+    vm: MainViewModel,
+    onBack: () -> Unit,
+    onOpenArtist: (String) -> Unit
+) {
     val state by vm.playerState.collectAsStateWithLifecycle()
     val likedIds by vm.likedIds.collectAsStateWithLifecycle()
     val downloadedIds by vm.downloadedIds.collectAsStateWithLifecycle()
@@ -132,7 +139,8 @@ fun PlayerScreen(vm: MainViewModel, onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable { onOpenArtist(track.artist) }
             )
 
             Spacer(Modifier.height(8.dp))
@@ -163,6 +171,13 @@ fun PlayerScreen(vm: MainViewModel, onBack: () -> Unit) {
                         contentDescription = if (downloaded) "Downloaded" else "Download",
                         tint = if (downloaded) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { shareTrack(context, track) }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Share,
+                        contentDescription = "Share song",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Spacer(Modifier.weight(1f))
@@ -415,7 +430,12 @@ fun PlayerScreen(vm: MainViewModel, onBack: () -> Unit) {
         QueueDialog(
             state = state,
             onDismiss = { showQueue = false },
-            onJump = vm::jumpToQueue
+            onJump = vm::jumpToQueue,
+            onRemove = vm::removeFromQueue,
+            onMoveUp = { index -> vm.moveQueueItem(index, index - 1) },
+            onMoveDown = { index -> vm.moveQueueItem(index, index + 1) },
+            onClearUpcoming = vm::clearUpcoming,
+            onSaveQueue = vm::saveQueueAsPlaylist
         )
     }
     if (showSleep) {
