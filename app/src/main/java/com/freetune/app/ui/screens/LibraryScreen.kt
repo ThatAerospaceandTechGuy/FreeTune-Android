@@ -23,7 +23,9 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistPlay
@@ -93,6 +95,20 @@ fun LibraryScreen(
     val context = LocalContext.current
 
     var tab by rememberSaveable { mutableStateOf(0) }
+    var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val selectedTracks = when (tab) {
+        1 -> liked.filter { selectedIds.contains(it.id) }
+        2 -> downloads.filter { selectedIds.contains(it.id) }
+        3 -> recent.filter { selectedIds.contains(it.id) }
+        else -> emptyList()
+    }
+    val toggleSelection: (Track) -> Unit = { track ->
+        selectedIds = if (selectedIds.contains(track.id)) {
+            selectedIds - track.id
+        } else {
+            selectedIds + track.id
+        }
+    }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var showImport by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
@@ -104,21 +120,59 @@ fun LibraryScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Library",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.weight(1f)
-            )
-            if (tab == 0) {
-                TextButton(onClick = { showImport = true }) { Text("Import") }
-                FilledTonalButton(onClick = { showCreate = true }) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text("New")
+            if (selectedIds.isEmpty()) {
+                Text(
+                    text = "Library",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                if (tab == 0) {
+                    TextButton(onClick = { showImport = true }) { Text("Import") }
+                    FilledTonalButton(onClick = { showCreate = true }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("New")
+                    }
+                }
+            } else {
+                IconButton(onClick = { selectedIds = emptySet() }) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Done selecting")
+                }
+                Text(
+                    text = "${selectedIds.size} selected",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = {
+                        vm.playAll(selectedTracks)
+                        selectedIds = emptySet()
+                    },
+                    enabled = selectedTracks.isNotEmpty()
+                ) {
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = "Play selected")
+                }
+                IconButton(
+                    onClick = {
+                        vm.addAllToQueue(selectedTracks)
+                        selectedIds = emptySet()
+                    },
+                    enabled = selectedTracks.isNotEmpty()
+                ) {
+                    Icon(Icons.Rounded.PlaylistAdd, contentDescription = "Queue selected")
+                }
+                IconButton(
+                    onClick = {
+                        vm.likeAll(selectedTracks)
+                        selectedIds = emptySet()
+                    },
+                    enabled = selectedTracks.isNotEmpty()
+                ) {
+                    Icon(Icons.Rounded.Favorite, contentDescription = "Like selected")
                 }
             }
         }
@@ -128,7 +182,10 @@ fun LibraryScreen(
                 .forEachIndexed { index, label ->
                 Tab(
                     selected = tab == index,
-                    onClick = { tab = index },
+                    onClick = {
+                        tab = index
+                        selectedIds = emptySet()
+                    },
                     text = { Text(label, maxLines = 1) }
                 )
             }
@@ -167,7 +224,11 @@ fun LibraryScreen(
                                 onDownload = {
                                     downloadOrToast(context, downloaded) { vm.download(track) }
                                 },
-                                onAddToPlaylist = { vm.showPlaylistPicker(track) }
+                                onAddToPlaylist = { vm.showPlaylistPicker(track) },
+                                selectionMode = selectedIds.isNotEmpty(),
+                                selected = selectedIds.contains(track.id),
+                                onToggleSelected = { toggleSelection(track) },
+                                onLongClick = { toggleSelection(track) }
                             )
                         }
                     }
@@ -182,7 +243,9 @@ fun LibraryScreen(
                 backfill = backfill,
                 onBackfill = vm::backfillLyrics,
                 vm = vm,
-                context = context
+                context = context,
+                selectedIds = selectedIds,
+                onToggleSelection = toggleSelection
             )
 
             3 -> {
@@ -222,7 +285,11 @@ fun LibraryScreen(
                                     onDownload = {
                                         downloadOrToast(context, downloaded) { vm.download(track) }
                                     },
-                                    onAddToPlaylist = { vm.showPlaylistPicker(track) }
+                                    onAddToPlaylist = { vm.showPlaylistPicker(track) },
+                                    selectionMode = selectedIds.isNotEmpty(),
+                                    selected = selectedIds.contains(track.id),
+                                    onToggleSelected = { toggleSelection(track) },
+                                    onLongClick = { toggleSelection(track) }
                                 )
                             }
                         }
@@ -463,7 +530,9 @@ private fun DownloadsTab(
     backfill: LyricsBackfillState,
     onBackfill: () -> Unit,
     vm: MainViewModel,
-    context: android.content.Context
+    context: android.content.Context,
+    selectedIds: Set<String>,
+    onToggleSelection: (Track) -> Unit
 ) {
     val active = statuses.values
         .filter { it.state == DownloadState.QUEUED || it.state == DownloadState.RUNNING }
@@ -554,7 +623,11 @@ private fun DownloadsTab(
                         vm.removeDownload(track)
                         Toast.makeText(context, "Download removed", Toast.LENGTH_SHORT).show()
                     },
-                    onAddToPlaylist = { vm.showPlaylistPicker(track) }
+                    onAddToPlaylist = { vm.showPlaylistPicker(track) },
+                    selectionMode = selectedIds.isNotEmpty(),
+                    selected = selectedIds.contains(track.id),
+                    onToggleSelected = { onToggleSelection(track) },
+                    onLongClick = { onToggleSelection(track) }
                 )
             }
         }

@@ -3,8 +3,10 @@ package com.freetune.app.ui.components
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -79,6 +82,7 @@ fun AsyncArtwork(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackRow(
     track: Track,
@@ -94,17 +98,43 @@ fun TrackRow(
     onAddToPlaylist: (() -> Unit)? = null,
     onRemoveFromPlaylist: (() -> Unit)? = null,
     showDownload: Boolean = true,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    onToggleSelected: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val clickModifier = if (onLongClick != null) {
+        Modifier.combinedClickable(
+            onClick = {
+                if (selectionMode) onToggleSelected?.invoke() else onPlay()
+            },
+            onLongClick = onLongClick
+        )
+    } else {
+        Modifier.clickable {
+            if (selectionMode) onToggleSelected?.invoke() else onPlay()
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onPlay)
+            .then(clickModifier)
+            .background(
+                if (selected) MaterialTheme.colorScheme.surfaceVariant
+                else androidx.compose.ui.graphics.Color.Transparent
+            )
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (selectionMode) {
+            Checkbox(
+                checked = selected,
+                onCheckedChange = { onToggleSelected?.invoke() }
+            )
+        }
         if (leading != null) {
             leading()
             Spacer(Modifier.width(4.dp))
@@ -130,7 +160,7 @@ fun TrackRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(onClick = onToggleLike) {
+        if (!selectionMode) IconButton(onClick = onToggleLike) {
             Icon(
                 imageVector = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 contentDescription = if (liked) "Unlike" else "Like",
@@ -138,7 +168,7 @@ fun TrackRow(
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        if (showDownload) {
+        if (showDownload && !selectionMode) {
             IconButton(
                 onClick = {
                     if (downloaded && onRemoveDownload != null) onRemoveDownload()
@@ -154,8 +184,9 @@ fun TrackRow(
                 )
             }
         }
-        if (onStartRadio != null || onPlayNext != null || onAddToQueue != null ||
-            onAddToPlaylist != null || onRemoveFromPlaylist != null
+        if (!selectionMode &&
+            (onStartRadio != null || onPlayNext != null || onAddToQueue != null ||
+                onAddToPlaylist != null || onRemoveFromPlaylist != null)
         ) {
             Box {
                 IconButton(onClick = { menuOpen = true }) {

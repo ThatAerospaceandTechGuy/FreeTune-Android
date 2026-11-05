@@ -287,6 +287,11 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         container.playerManager.play(track, queue)
     }
 
+    fun playAll(tracks: List<Track>) {
+        if (tracks.isEmpty()) return
+        container.playerManager.play(tracks.first(), tracks)
+    }
+
     fun playPlaylist(playlist: Playlist, shuffle: Boolean = false) {
         viewModelScope.launch {
             val tracks = repository.playlistTracks(playlist.id).first()
@@ -332,6 +337,25 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun addToQueue(track: Track) {
         val queued = container.playerManager.addToQueue(track)
         toast(if (queued) "Added to queue" else "Already playing")
+    }
+
+    fun addAllToQueue(tracks: List<Track>) {
+        var added = 0
+        tracks.forEach { if (container.playerManager.addToQueue(it)) added++ }
+        toast(if (added > 0) "Added $added to queue" else "Already in the queue")
+    }
+
+    fun likeAll(tracks: List<Track>) {
+        val ids = likedIds.value
+        val missing = tracks.filterNot { ids.contains(it.id) }
+        if (missing.isEmpty()) {
+            toast("Already liked")
+            return
+        }
+        viewModelScope.launch {
+            missing.forEach { repository.toggleLike(it) }
+        }
+        toast("Liked ${missing.size} songs")
     }
     fun seekTo(positionMs: Long) = container.playerManager.seekTo(positionMs)
 
